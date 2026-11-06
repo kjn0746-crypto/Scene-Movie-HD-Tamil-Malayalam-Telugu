@@ -11,7 +11,7 @@ app = Flask(__name__)
 API_ID = int(os.environ.get("TELEGRAM_API_ID", 0))
 API_HASH = os.environ.get("TELEGRAM_API_HASH", "")
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-MOVIE_CHANNEL_ID = os.environ.get("MOVIE_CHANNEL_ID")  # Numeric ID starting with -100
+MOVIE_CHANNEL_ID = os.environ.get("MOVIE_CHANNEL_ID")
 
 # Initialize the Pyrogram Bot Client
 bot = Client(
@@ -21,12 +21,10 @@ bot = Client(
     bot_token=BOT_TOKEN
 )
 
-# 🏠 Core Flask route to keep the Render system online and active
 @app.route('/')
 def home():
     return "Scene Movie HD Live Search Engine Running Successfully!"
 
-# 🌟 Telegram Bot Greeting Command Handler
 @bot.on_message(filters.command("start"))
 async def start_command(client: Client, message: Message):
     await message.reply_text(
@@ -36,54 +34,41 @@ async def start_command(client: Client, message: Message):
         ])
     )
 
-# 🔍 Real-Time Active Movie Search and Media Forwarding Handler
 @bot.on_message(filters.text & ~filters.command(["start"]))
 async def search_movies(client: Client, message: Message):
     query = message.text.lower().strip()
     await message.reply_chat_action("typing")
     
     if not MOVIE_CHANNEL_ID:
-        # Fallback view if the numeric Channel ID isn't linked to Render environment yet
         response_text = (
             f"🎬 **Search Results for:** `{message.text}`\n\n"
             f"📥 **[Download Server 1]** {message.text} HD Tamil\n"
-            f"📥 **[Download Server 2]** {message.text} HDRip Malayalam\n"
-            f"📥 **[Download Server 3]** {message.text} Web-DL Telugu\n\n"
-            "⚠️ *Tip: Link your MOVIE_CHANNEL_ID variable in Render settings to auto-forward your custom media files.*"
+            "⚠️ *Tip: Link your MOVIE_CHANNEL_ID variable in Render settings.*"
         )
         await message.reply_text(response_text)
         return
 
     found_files = False
-    
     try:
-        # Actively scan history streams inside your movie channel matching the user query string
         async for msg in client.search_messages(chat_id=int(MOVIE_CHANNEL_ID), query=query):
             found_files = True
-            # Safely clone/forward the matching file directly to the user's private message box
             await msg.copy(chat_id=message.chat.id)
     except Exception as e:
         print(f"Search system error: {e}")
         
     if not found_files:
-        await message.reply_text(f"❌ Sorry, no results found for **{message.text}**.\nMake sure spelling is correct or request it in our group!")
+        await message.reply_text(f"❌ Sorry, no results found for **{message.text}**.")
 
-# Background runtime loop thread container initialization
 def run_bot():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     bot.run()
 
 if __name__ == '__main__':
-    # Spin up the Telegram runtime engine inside an independent background execution thread
     if API_ID and API_HASH and BOT_TOKEN:
         bot_thread = Thread(target=run_bot, daemon=True)
         bot_thread.start()
-        print("Telegram Bot Thread started successfully.")
-    else:
-        print("Warning: Missing core Telegram environment tokens. Python script did not start the client background service.")
-        
-    # Bind port configurations to run the Render server cluster
+    
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
     
